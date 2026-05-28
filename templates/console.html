@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectraForge – DSP Console</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            font-family: 'Segoe UI', 'Poppins', sans-serif;
+            height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .console {
+            width: 95vw;
+            max-width: 1600px;
+            height: 90vh;
+            max-height: 1000px;
+            background: rgba(18, 25, 45, 0.65);
+            backdrop-filter: blur(14px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 120, 215, 0.4);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .toolbar {
+            background: rgba(10, 18, 30, 0.7);
+            padding: 0.5rem 1rem;
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 120, 215, 0.3);
+            flex-shrink: 0;
+        }
+        .toolbar button {
+            background: rgba(20, 30, 50, 0.9);
+            border: 1px solid #3a4c6e;
+            color: #e0eaff;
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .toolbar button:hover { background: #0078d7; }
+        .spacer { flex: 1; }
+        .page-nav {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(0,0,0,0.3);
+            padding: 0.5rem 1rem;
+            flex-shrink: 0;
+        }
+        .page-btn {
+            background: #2c3e50;
+            border: none;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            color: #ccc;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .page-btn.active {
+            background: #0078d7;
+            color: white;
+        }
+        .page {
+            flex: 1;
+            display: none;
+            padding: 0.8rem;
+            overflow: hidden;
+        }
+        .page.active { display: flex; gap: 0.8rem; }
+        .card {
+            background: rgba(25, 35, 55, 0.6);
+            border-radius: 1rem;
+            padding: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 0.6rem;
+            color: #bbd4ff;
+            border-left: 3px solid #0078d7;
+            padding-left: 0.5rem;
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            font-size: 0.75rem;
+        }
+        .control-row label { color: #b0c4de; }
+        .control-row input, .control-row select {
+            width: 120px;
+            background: #0f172a;
+            border: 1px solid #2c3f5f;
+            border-radius: 20px;
+            padding: 0.2rem 0.5rem;
+            color: white;
+        }
+        .control-row input[type="range"] { width: 110px; }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+            font-size: 0.75rem;
+        }
+        .eq-slider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .eq-slider label { font-size: 0.7rem; margin-top: 0.2rem; }
+        input[type="range"].vertical {
+            writing-mode: vertical-rl;
+            direction: rtl;
+            -webkit-appearance: slider-vertical;
+            -moz-appearance: slider-vertical;
+            appearance: slider-vertical;
+            width: 30px;
+            height: 80px;
+        }
+        .eq-row { display: flex; justify-content: space-around; }
+        canvas { background: #0a0f1e; border-radius: 0.8rem; width: 100%; height: 100%; }
+        .monitor {
+            flex: 1;
+            background: rgba(10, 18, 30, 0.5);
+            border-radius: 1.2rem;
+            padding: 0.6rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .monitor canvas { flex: 1; }
+        .monitor-title {
+            color: white;
+            font-size: 0.7rem;
+            margin-bottom: 0.3rem;
+            text-align: center;
+        }
+        .split-horizontal { display: flex; gap: 0.8rem; height: 100%; }
+        .status-bar {
+            background: #0078d7;
+            color: white;
+            padding: 0.2rem 1rem;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #1a2740; }
+        ::-webkit-scrollbar-thumb { background: #3a5a7a; }
+        .left-panel, .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            overflow-y: auto;
+        }
+        .left-panel { width: 280px; }
+        .right-panel { width: 280px; }
+        .left-panel .card:first-child { flex-shrink: 0; }
+        .left-panel .card:last-child { flex: 1; }
+        .right-panel .card:first-child { flex-shrink: 0; }
+        .right-panel .card:last-child { flex: 1; }
+        .center-area { flex: 4; display: flex; flex-direction: column; gap: 0.6rem; }
+        .checkbox-label {
+            color: white;
+            font-size: 0.75rem;
+        }
+        .checkbox-label input[type="checkbox"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1.5px solid white;
+            border-radius: 3px;
+            background: transparent;
+            cursor: pointer;
+            margin-right: 6px;
+            position: relative;
+            vertical-align: middle;
+        }
+        .checkbox-label input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 2px;
+            font-size: 12px;
+            color: white;
+        }
+        .checkbox-label input[type="checkbox"]:focus {
+            outline: none;
+        }
+        input[type="range"]:disabled {
+            pointer-events: none;
+            opacity: 0.5;
+            cursor: default;
+        }
+        .control-row span,
+        .eq-slider span {
+            color: white;
+        }
+        .control-row label,
+        .eq-slider label {
+            color: white;
+        }
+        .page-nav {
+            justify-content: center;
+        }
+        .page.active {
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+<div class="console">
+    <div class="toolbar">
+        <button id="backBtn"><i class="fas fa-arrow-left"></i> Dashboard</button>
+        <button id="generateBtn"><i class="fas fa-waveform"></i> Generate Tone</button>
+        <button id="loadWavBtn"><i class="fas fa-file-audio"></i> Load WAV</button>
+        <button id="resetBtn"><i class="fas fa-undo-alt"></i> Reset</button>
+        <div class="spacer"></div>
+        <button id="saveProjectBtn"><i class="fas fa-save"></i> Save Project</button>
+        <button id="playBtn" style="display: none; background:#2c3e50; border:none; border-radius:40px; padding:0.3rem 1rem; color:white; cursor:pointer;"><i class="fas fa-play"></i> Play</button>
+        <button id="playProcessedBtn" style="background:#2c3e50; border:none; border-radius:40px; padding:0.3rem 1rem; color:white; cursor:pointer;"><i class="fas fa-magic"></i> Play Processed</button>
+    </div>
+
+    <div class="page-nav">
+        <button class="page-btn active" data-page="edit">Edit</button>
+        <button class="page-btn" data-page="analysis">Analysis</button>
+        <button class="page-btn" data-page="render">Render & Save</button>
+    </div>
+
+    <!-- PAGE 1: EDIT -->
+    <div id="editPage" class="page active">
+        <div class="left-panel">
+            <div class="card">
+                <h3><i class="fas fa-microphone-alt"></i> Sampling & Aliasing</h3>
+                <div style="display: flex; justify-content: space-around; margin-bottom: 0.8rem;">
+                    <div class="eq-slider">
+                        <input type="range" id="aliasSigFreq" min="20" max="5000" value="440" step="1" class="vertical">
+                        <label>Signal Freq (Hz)</label>
+                        <span id="aliasFreqVal" style="font-size:0.7rem;">440</span>
+                    </div>
+                    <div class="eq-slider">
+                        <input type="range" id="aliasSampleFreq" min="100" max="10000" value="1000" step="10" class="vertical">
+                        <label>Sampling Freq (Hz)</label>
+                        <span id="aliasSampleVal" style="font-size:0.7rem;">1000</span>
+                    </div>
+                    <div class="eq-slider">
+                        <input type="range" id="dur" min="0.5" max="5" step="0.1" value="0.5" class="vertical">
+                        <label>Duration (s)</label>
+                        <span id="durVal" style="font-size:0.7rem;">0.5</span>
+                    </div>
+                </div>
+                <div class="control-row">
+                    <label>Waveform</label>
+                    <select id="waveform">
+                        <option>sine</option>
+                        <option>cosine</option>
+                        <option>noise</option>
+                    </select>
+                </div>
+                <button id="updateAliasingBtn" style="width:100%;">Refresh Aliasing Plot</button>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-filter"></i> Digital Filtering</h3>
+                <div class="checkbox-label">
+                    <input type="checkbox" id="filterEnable"> <label>Enable Filtering</label>
+                </div>
+                <div id="filterControls" style="opacity: 0.6;">
+                    <div class="control-row"><label>Type</label><select id="filterType" disabled><option>lowpass</option><option>highpass</option><option>bandpass</option><option>bandstop</option></select></div>
+                    <div style="display: flex; justify-content: space-around; margin-top: 0.5rem;">
+                        <div class="eq-slider">
+                            <input type="range" id="cutoff1" min="20" max="20000" value="1000" step="10" class="vertical" disabled>
+                            <label>Cutoff 1 (Hz)</label>
+                            <span id="c1Val" style="font-size:0.7rem;">1000</span>
+                        </div>
+                        <div class="eq-slider">
+                            <input type="range" id="cutoff2" min="20" max="20000" value="4000" step="10" class="vertical" disabled>
+                            <label>Cutoff 2 (Hz)</label>
+                            <span id="c2Val" style="font-size:0.7rem;">4000</span>
+                        </div>
+                        <div class="eq-slider">
+                            <input type="range" id="order" min="1" max="8" value="4" step="1" class="vertical" disabled>
+                            <label>Order</label>
+                            <span id="orderVal" style="font-size:0.7rem;">4</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="center-area">
+            <div class="monitor" style="flex:3;">
+                <div class="monitor-title">Waveform Monitor</div>
+                <div style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 0.3rem;">
+                    <button id="zoomInBtn" style="background:#2c3e50; border:none; border-radius:20px; padding:0.2rem 0.8rem; color:white; cursor:pointer;">Zoom In</button>
+                    <button id="zoomOutBtn" style="background:#2c3e50; border:none; border-radius:20px; padding:0.2rem 0.8rem; color:white; cursor:pointer;">Zoom Out</button>
+                    <button id="zoomResetBtn" style="background:#2c3e50; border:none; border-radius:20px; padding:0.2rem 0.8rem; color:white; cursor:pointer;">Reset Zoom</button>
+                </div>
+                <canvas id="waveformCanvas" width="800" height="300"></canvas>
+                <input type="range" id="waveformPanSlider" min="0" max="100" value="0" style="width:100%; margin-top: 8px; background:#3c3c3c;">
+            </div>
+            <div class="monitor" style="flex:2; display: flex; flex-direction: column;">
+                <div class="monitor-title">Timeline Overview (Left Channel)</div>
+                <canvas id="timelineCanvasLeft" width="800" height="55" style="flex:1;"></canvas>
+                <div class="monitor-title" style="margin-top: 4px;">Timeline Overview (Right Channel)</div>
+                <canvas id="timelineCanvasRight" width="800" height="55" style="flex:1;"></canvas>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div class="card">
+                <h3><i class="fas fa-sliders-h"></i> General Settings</h3>
+                <div style="display: flex; justify-content: space-around; margin-bottom: 0.8rem;">
+                    <div class="eq-slider">
+                        <input type="range" id="volume" min="0" max="2" step="0.01" value="1" class="vertical">
+                        <label>Volume</label>
+                        <span id="volumeVal" style="font-size:0.7rem;">1.00</span>
+                    </div>
+                    <div class="eq-slider">
+                        <input type="range" id="pan" min="-1" max="1" step="0.01" value="0" class="vertical">
+                        <label>Pan (L/R)</label>
+                        <span id="panVal" style="font-size:0.7rem;">0.00</span>
+                    </div>
+                </div>
+                <div class="eq-row">
+                    <div class="eq-slider"><input type="range" id="bassGain" min="-12" max="12" value="0" step="1" class="vertical"><label>Bass</label></div>
+                    <div class="eq-slider"><input type="range" id="midGain" min="-12" max="12" value="0" step="1" class="vertical"><label>Mid</label></div>
+                    <div class="eq-slider"><input type="range" id="trebleGain" min="-12" max="12" value="0" step="1" class="vertical"><label>Treble</label></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-window-maximize"></i> Windowing</h3>
+                <div class="checkbox-label">
+                    <input type="checkbox" id="windowEnable"> <label>Enable Windowing</label>
+                </div>
+                <div id="windowControls" style="opacity: 0.6;">
+                    <div class="control-row"><label>Window Type</label><select id="windowType" disabled><option>rectangular</option><option>hamming</option><option>hann</option><option>blackman</option></select></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: ANALYSIS -->
+    <div id="analysisPage" class="page">
+        <div style="flex:1; display: flex; flex-direction: column; gap: 0.8rem;">
+            <div class="split-horizontal" style="height: 40%;">
+                <div class="monitor"><div class="monitor-title">DFT Magnitude Spectrum</div><canvas id="dftCanvas"></canvas></div>
+                <div class="monitor"><div class="monitor-title">FFT Magnitude Spectrum</div><canvas id="fftCanvas"></canvas></div>
+            </div>
+            <div class="monitor" style="height: 25%; overflow-y: auto;">
+                <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                    <input type="text" id="zSequenceAnalysis" value="1, -0.5, 0.25" style="flex:2; background:#0f172a; border:1px solid #2c3f5f; border-radius:20px; padding:0.3rem 0.6rem; color:white;">
+                    <button id="computeZAnalysisBtn" style="background:#0078d7; border:none; border-radius:40px; padding:0.3rem 1rem;"><i class="fas fa-calculator"></i> Compute</button>
+                    <button id="useSignalZBtn" style="background:#3a5a7a; border:none; border-radius:40px; padding:0.3rem 1rem;"><i class="fas fa-music"></i> Use Signal</button>
+                </div>
+                <canvas id="polezeroAnalysisCanvas" style="height:140px;"></canvas>
+                <div id="zExprAnalysis" style="font-size:10px; margin-top:6px;"></div>
+                <div class="monitor-title" style="margin-top: 8px;">Frequency Response from Z-Transform</div>
+                <canvas id="freqResponseCanvas" style="height:100px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PAGE 3: RENDER & SAVE -->
+    <div id="renderPage" class="page">
+        <div style="flex:1; display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center;">
+            <div class="card" style="width: 80%; text-align: center;">
+                <h3><i class="fas fa-download"></i> Export Final Processed Audio</h3>
+                <div style="display: flex; gap: 1rem; justify-content: center; margin: 1rem;">
+                    <button id="saveWavRenderBtn" style="padding: 0.5rem 1.5rem;"><i class="fas fa-file-audio"></i> Save as WAV</button>
+                    <button id="exportProjectRenderBtn" style="padding: 0.5rem 1.5rem;"><i class="fas fa-archive"></i> Export Project JSON</button>
+                    <button id="screenshotRenderBtn" style="padding: 0.5rem 1.5rem;"><i class="fas fa-camera"></i> Take Screenshot</button>
+                </div>
+            </div>
+            <div class="card" style="width: 80%;">
+                <h3><i class="fas fa-chart-line"></i> Final Signal Overview</h3>
+                <div style="height: 200px;">
+                    <canvas id="finalOverviewCanvas" style="width:100%; height:100%;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <audio id="audioPlayer" style="display: none;"></audio>
+    <div class="status-bar" id="statusMsg">Ready – generate or load audio</div>
+</div>
+
+<script>
+    let isLoadedAudio = false;
+    const projectId = "{{ project.id }}";
+    let currentSignal = [], currentTime = [], currentProcessed = [], currentFreqs = [], currentMag = [];
+    let hasSignal = false;
+    let waveformChart, timelineChartLeft, timelineChartRight, dftChart, fftChart, finalOverviewChart, aliasingChart, polezeroChart;
+
+    let filterEnabled = false;
+    let windowEnabled = false;
+
+    let zoomStartIdx = 0;
+    let zoomEndIdx = 0;
+    let zoomLevel = 1.0;
+    let currentOriginal = [];
+
+    let debounceTimer;
+    function debounceProcess() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            if (hasSignal) {
+                if (isLoadedAudio) applyDSPToCurrent();
+                else generateAndProcess();
+            }
+        }, 150);
+    }
+
+    const filterEnableCheck = document.getElementById('filterEnable');
+    const windowEnableCheck = document.getElementById('windowEnable');
+    const filterControlsDiv = document.getElementById('filterControls');
+    const windowControlsDiv = document.getElementById('windowControls');
+    const filterInputs = filterControlsDiv.querySelectorAll('input, select');
+    const windowInputs = windowControlsDiv.querySelectorAll('input, select');
+
+    function setFilterEnabled(enabled) {
+        filterEnabled = enabled;
+        filterEnableCheck.checked = enabled;
+        filterControlsDiv.style.opacity = enabled ? 1 : 0.6;
+        filterInputs.forEach(inp => inp.disabled = !enabled);
+        if (enabled && windowEnabled) setWindowEnabled(false);
+    }
+
+    function setWindowEnabled(enabled) {
+        windowEnabled = enabled;
+        windowEnableCheck.checked = enabled;
+        windowControlsDiv.style.opacity = enabled ? 1 : 0.6;
+        windowInputs.forEach(inp => inp.disabled = !enabled);
+        if (enabled && filterEnabled) setFilterEnabled(false);
+    }
+
+    filterEnableCheck.addEventListener('change', (e) => {
+        setFilterEnabled(e.target.checked);
+        if (hasSignal) generateAndProcess();
+    });
+    windowEnableCheck.addEventListener('change', (e) => {
+        setWindowEnabled(e.target.checked);
+        if (hasSignal) generateAndProcess();
+    });
+
+    async function generateAndProcess() {
+        const params = getCurrentParams();
+        setStatus("Processing...");
+        try {
+            const res = await fetch('/api/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const data = await res.json();
+            currentTime = data.t;
+            currentSignal = data.original;
+            currentProcessed = data.processed;
+            currentFreqs = data.freqs;
+            currentMag = data.mag;
+            hasSignal = true;
+            isLoadedAudio = false;
+            setDefaultZoom();
+            updateAllPlots();
+            updateSpectrumPlots();
+            setStatus("Ready");
+        } catch (err) { setStatus("Error: " + err, true); }
+    }
+
+async function applyDSPToCurrent() {
+    if (!hasSignal) return;
+    
+    console.log("=== APPLYING DSP TO CURRENT SIGNAL ===");
+    console.log("Current original length:", currentOriginal.length);
+    
+    const params = getCurrentParams();
+    
+    let signalToProcess = currentOriginal;
+    let timeToProcess = currentTime;
+    const maxSamples = 88200;
+    if (currentOriginal.length > maxSamples) {
+        signalToProcess = currentOriginal.slice(0, maxSamples);
+        timeToProcess = currentTime.slice(0, maxSamples);
+    }
+    params.signal = signalToProcess;
+    params.t = timeToProcess;
+    
+    setStatus("Applying effects...");
+    try {
+        const res = await fetch('/api/process_with_signal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        
+        console.log("=== BACKEND RESPONSE ===");
+        console.log("Processed signal length:", data.processed.length);
+        debugSignal(data.processed, "Processed from backend");
+        
+        currentProcessed = data.processed;
+        setDefaultZoom();
+        currentFreqs = data.freqs;
+        currentMag = data.mag;
+        updateAllPlots();
+        setStatus("Ready");
+    } catch (err) {
+        setStatus("Error processing: " + err, true);
+        console.error("Processing error:", err);
+    }
+}
+
+    function updateAllPlots() {
+        if (!hasSignal) return;
+        if (waveformChart) waveformChart.destroy();
+        const waveCtx = document.getElementById('waveformCanvas').getContext('2d');
+
+        const totalLen = currentTime.length;
+        if (zoomEndIdx === 0 || zoomEndIdx > totalLen) {
+            zoomStartIdx = 0;
+            zoomEndIdx = totalLen;
+        }
+        let t_full = currentTime.slice(zoomStartIdx, zoomEndIdx);
+        let sig_full = currentProcessed.slice(zoomStartIdx, zoomEndIdx);
+        const maxWaveformPoints = 500;
+        const t_show = downsample(t_full, maxWaveformPoints);
+        const sig_show = downsample(sig_full, maxWaveformPoints);
+        updatePanSliderRange();
+
+        waveformChart = new Chart(waveCtx, {
+            type: 'line',
+            data: { labels: t_show, datasets: [{ label: 'Processed Signal', data: sig_show, borderColor: '#4c9aff', fill: false, tension: 0.1 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: 'white' } } },
+                scales: {
+                    x: {
+                        title: { color: 'white', display: true, text: 'Time (s)' },
+                        ticks: { color: 'white', maxTicksLimit: 10, callback: function(val) { return Math.round(val); } }
+                    },
+                    y: { title: { color: 'white', display: true, text: 'Amplitude' } }
+                }
+            }
+        });
+
+        // Timeline charts - Left and Right channels (stereo)
+        const timelinePoints = downsample(currentTime, 1000);
+        let timelineSig = downsample(currentProcessed, 1000);
+        
+        // Handle stereo (2 channels) or mono
+        let leftChannel = timelineSig;
+        let rightChannel = timelineSig;
+        if (timelineSig.length > 0 && Array.isArray(timelineSig[0]) && timelineSig[0].length === 2) {
+            // It's stereo - split channels
+            leftChannel = timelineSig.map(ch => ch[0]);
+            rightChannel = timelineSig.map(ch => ch[1]);
+        }
+        
+        // Left channel chart
+        const timelineCtxLeft = document.getElementById('timelineCanvasLeft').getContext('2d');
+        if (window.timelineChartLeft) window.timelineChartLeft.destroy();
+        window.timelineChartLeft = new Chart(timelineCtxLeft, {
+            type: 'line',
+            data: { 
+                labels: timelinePoints, 
+                datasets: [{ label: 'Left', data: leftChannel, borderColor: 'cyan', borderWidth: 0.5, fill: false, pointRadius: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: 'white', font: { size: 7 }, maxTicksLimit: 6, callback: function(val) { return Math.round(val); } } },
+                    y: { ticks: { color: 'white', font: { size: 7 } } }
+                }
+            }
+        });
+        
+        // Right channel chart
+        const timelineCtxRight = document.getElementById('timelineCanvasRight').getContext('2d');
+        if (window.timelineChartRight) window.timelineChartRight.destroy();
+        window.timelineChartRight = new Chart(timelineCtxRight, {
+            type: 'line',
+            data: { 
+                labels: timelinePoints, 
+                datasets: [{ label: 'Right', data: rightChannel, borderColor: 'yellow', borderWidth: 0.5, fill: false, pointRadius: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: 'white', font: { size: 7 }, maxTicksLimit: 6, callback: function(val) { return Math.round(val); } } },
+                    y: { ticks: { color: 'white', font: { size: 7 } } }
+                }
+            }
+        });
+
+        if (dftChart) dftChart.destroy();
+        if (fftChart) fftChart.destroy();
+        const dftCtx = document.getElementById('dftCanvas').getContext('2d');
+        const fftCtx = document.getElementById('fftCanvas').getContext('2d');
+        dftChart = new Chart(dftCtx, {
+            type: 'line', data: { labels: currentFreqs, datasets: [{ label: 'DFT Magnitude', data: currentMag, borderColor: 'orange', fill: false, pointRadius: 0 }] },
+            options: { responsive: true, scales: { x: { type: 'linear', title: { display: true, text: 'Hz', color: 'white' } }, y: { title: { display: true, text: 'Magnitude', color: 'white' } } }, plugins: { legend: { labels: { color: 'white' } } } }
+        });
+        fftChart = new Chart(fftCtx, {
+            type: 'line', data: { labels: currentFreqs, datasets: [{ label: 'FFT Magnitude', data: currentMag, borderColor: 'lime', fill: false, pointRadius: 0 }] },
+            options: { responsive: true, scales: { x: { type: 'linear', title: { display: true, text: 'Hz', color: 'white' } }, y: { title: { display: true, text: 'Magnitude', color: 'white' } } }, plugins: { legend: { labels: { color: 'white' } } } }
+        });
+
+        const finalPoints = downsample(currentTime, 800);
+        const finalSig = downsample(currentProcessed, 800);
+        if (finalOverviewChart) finalOverviewChart.destroy();
+        const finalCtx = document.getElementById('finalOverviewCanvas').getContext('2d');
+        finalOverviewChart = new Chart(finalCtx, {
+            type: 'line',
+            data: { labels: finalPoints, datasets: [{ label: 'Final Output', data: finalSig, borderColor: 'cyan', fill: false, pointRadius: 0 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: 'white' } } },
+                scales: {
+                    x: { ticks: { color: 'white', maxTicksLimit: 8, callback: function(val) { return Math.round(val); } } },
+                    y: { ticks: { color: 'white' } }
+                }
+            }
+        });
+        updateSpectrumPlots();
+    }
+
+    function zoomWaveform(factor) {
+        if (!hasSignal) return;
+        const totalLen = currentTime.length;
+        if (totalLen === 0) return;
+        let windowLen = zoomEndIdx - zoomStartIdx;
+        if (windowLen <= 0) windowLen = totalLen;
+        let newWindowLen = Math.floor(windowLen * factor);
+        newWindowLen = Math.min(totalLen, Math.max(10, newWindowLen));
+        const centerIdx = Math.floor((zoomStartIdx + zoomEndIdx) / 2);
+        let newStart = Math.max(0, centerIdx - Math.floor(newWindowLen / 2));
+        let newEnd = newStart + newWindowLen;
+        if (newEnd > totalLen) {
+            newEnd = totalLen;
+            newStart = totalLen - newWindowLen;
+        }
+        zoomStartIdx = Math.max(0, newStart);
+        zoomEndIdx = Math.min(totalLen, newEnd);
+        updateAllPlots();
+    }
+
+    function downsample(arr, maxPoints) {
+        if (arr.length <= maxPoints) return arr;
+        const step = arr.length / maxPoints;
+        const result = [];
+        for (let i = 0; i < maxPoints; i++) {
+            const idx = Math.floor(i * step);
+            result.push(arr[idx]);
+        }
+        if (result[result.length - 1] !== arr[arr.length - 1]) {
+            result[result.length - 1] = arr[arr.length - 1];
+        }
+        return result;
+    }
+
+    function getDefaultWindowIndices() {
+        const totalLen = currentTime.length;
+        const duration = getCurrentParams().duration;
+        if (duration <= 0) return { start: 0, end: totalLen };
+        const samplesPerSec = totalLen / duration;
+        const waveformType = document.getElementById('waveform')?.value;
+        if (waveformType === 'sine' || waveformType === 'cosine') {
+            const freq = parseFloat(document.getElementById('aliasSigFreq').value);
+            if (freq > 0) {
+                const periodSec = 1 / freq;
+                let periodSamples = Math.floor(periodSec * samplesPerSec);
+                periodSamples = Math.max(10, Math.min(periodSamples, totalLen));
+                return { start: 0, end: periodSamples };
+            }
+        }
+        let windowSamples = Math.floor(0.1 * samplesPerSec);
+        if (windowSamples < 10) windowSamples = Math.floor(3 * samplesPerSec);
+        windowSamples = Math.min(totalLen, windowSamples);
+        return { start: 0, end: windowSamples };
+    }
+
+    function resetZoom() {
+        zoomStartIdx = 0;
+        zoomEndIdx = currentTime.length;
+        updateAllPlots();
+    }
+
+// After getting currentProcessed, add this to fetch spectrum data
+// After getting currentProcessed, add this to fetch spectrum data
+async function updateSpectrumPlots() {
+    if (!hasSignal) return;
+    
+    // Show loading indicator
+    setStatus("Computing DFT (slow) vs FFT (fast)...");
+    
+    try {
+        const startTime = performance.now();
+        const res = await fetch('/api/spectrum_analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                signal: currentProcessed.slice(0, 4096),
+                fs: 44100
+            })
+        });
+        const data = await res.json();
+        const totalTime = (performance.now() - startTime) / 1000;
+        
+        // Update DFT chart
+        if (dftChart) dftChart.destroy();
+        const dftCtx = document.getElementById('dftCanvas').getContext('2d');
+        dftChart = new Chart(dftCtx, {
+            type: 'line',
+            data: { 
+                labels: data.freqs, 
+                datasets: [{ 
+                    label: `DFT (Slow - ${data.dft_time.toFixed(3)}s)`, 
+                    data: data.dft_mag, 
+                    borderColor: 'orange', 
+                    borderWidth: 2,
+                    fill: false, 
+                    pointRadius: 0,
+                    tension: 0.1
+                }] 
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { 
+                    legend: { labels: { color: 'white', font: { size: 11 } } },
+                    tooltip: { callbacks: { label: function(context) { return `Freq: ${context.parsed.x.toFixed(1)} Hz, Mag: ${context.parsed.y.toFixed(2)}`; } } }
+                },
+                scales: { 
+                    x: { 
+                        type: 'linear', 
+                        title: { display: true, text: 'Frequency (Hz)', color: 'white', font: { size: 12 } },
+                        ticks: { color: 'white', stepSize: 200 },
+                        min: 0,
+                        max: 2000
+                    }, 
+                    y: { 
+                        title: { display: true, text: 'Magnitude', color: 'white', font: { size: 12 } },
+                        ticks: { color: 'white' }
+                    } 
+                },
+                animation: {
+                    duration: 500
+                }
+            }
+        });
+        
+        // Update FFT chart
+        if (fftChart) fftChart.destroy();
+        const fftCtx = document.getElementById('fftCanvas').getContext('2d');
+        fftChart = new Chart(fftCtx, {
+            type: 'line',
+            data: { 
+                labels: data.freqs, 
+                datasets: [{ 
+                    label: `FFT (Fast - ${data.fft_time.toFixed(3)}s)`, 
+                    data: data.fft_mag, 
+                    borderColor: 'lime', 
+                    borderWidth: 2,
+                    fill: false, 
+                    pointRadius: 0,
+                    tension: 0.1
+                }] 
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { 
+                    legend: { labels: { color: 'white', font: { size: 11 } } },
+                    tooltip: { callbacks: { label: function(context) { return `Freq: ${context.parsed.x.toFixed(1)} Hz, Mag: ${context.parsed.y.toFixed(2)}`; } } }
+                },
+                scales: { 
+                    x: { 
+                        type: 'linear', 
+                        title: { display: true, text: 'Frequency (Hz)', color: 'white', font: { size: 12 } },
+                        ticks: { color: 'white', stepSize: 200 },
+                        min: 0,
+                        max: 2000
+                    }, 
+                    y: { 
+                        title: { display: true, text: 'Magnitude', color: 'white', font: { size: 12 } },
+                        ticks: { color: 'white' }
+                    } 
+                },
+                animation: {
+                    duration: 500
+                }
+            }
+        });
+        
+        // Display clear comparison message
+        const speedupMsg = `FFT is ${data.speedup.toFixed(1)}x faster than DFT!`;
+        const accuracyMsg = `Results match within ${data.max_difference.toFixed(6)} (virtually identical)`;
+        
+        console.log(`${speedupMsg}`);
+        console.log(`${accuracyMsg}`);
+        
+        // Show in status bar
+        setStatus(`${speedupMsg} | ${accuracyMsg}`);
+        
+        // Add a small annotation box on the page (optional)
+        showComparisonMessage(speedupMsg, accuracyMsg, data.speedup);
+        
+    } catch (err) {
+        console.error("Spectrum analysis error:", err);
+        setStatus("Spectrum analysis error: " + (err.message || "Unknown error"), true);
+        // Don't crash the whole page - show empty plots
+        if (dftChart) dftChart.destroy();
+        if (fftChart) fftChart.destroy();
+    }
+}
+
+// Add this helper function to show a visual comparison message
+function showComparisonMessage(speedMsg, accuracyMsg, speedup) {
+    // Remove existing message if any
+    const existingMsg = document.getElementById('comparisonMsg');
+    if (existingMsg) existingMsg.remove();
+    
+    // Create message box
+    const msgDiv = document.createElement('div');
+    msgDiv.id = 'comparisonMsg';
+    msgDiv.style.cssText = `
+        position: fixed;
+        bottom: 60px;
+        right: 20px;
+        background: rgba(0,0,0,0.85);
+        color: white;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-family: monospace;
+        border-left: 4px solid ${speedup > 10 ? '#4c9aff' : 'orange'};
+        z-index: 1000;
+        pointer-events: none;
+        backdrop-filter: blur(5px);
+    `;
+    msgDiv.innerHTML = `
+        <strong>DFT vs FFT Comparison</strong><br>
+        ${speedMsg}<br>
+        ${accuracyMsg}<br>
+        <span style="font-size: 10px; color: #aaa;">Same result, but FFT is much faster!</span>
+    `;
+    document.body.appendChild(msgDiv);
+    
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+        if (msgDiv) msgDiv.remove();
+    }, 8000);
+}
+
+    function setDefaultZoom() {
+        if (!hasSignal) return;
+        const { start, end } = getDefaultWindowIndices();
+        zoomStartIdx = start;
+        zoomEndIdx = end;
+        updateAllPlots();
+    }
+
+    async function updateAliasingPlot() {
+        const sigFreq = parseFloat(document.getElementById('aliasSigFreq').value);
+        const sampFreq = parseFloat(document.getElementById('aliasSampleFreq').value);
+        const res = await fetch('/api/aliasing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signal_freq: sigFreq, sample_freq: sampFreq })
+        });
+        const data = await res.json();
+        if (aliasingChart) aliasingChart.destroy();
+        const ctx = document.getElementById('aliasingCanvas')?.getContext('2d');
+        if (ctx) {
+            aliasingChart = new Chart(ctx, {
+                type: 'line', data: { datasets: [{ label: 'Continuous', data: data.sig_cont, borderColor: 'blue', fill: false, pointRadius: 0 }, { label: 'Sampled', data: data.sig_samp, borderColor: 'red', type: 'scatter', showLine: false, pointRadius: 2 }], labels: data.t_cont },
+                options: { responsive: true, scales: { x: { title: { display: true, text: 'Time (s)', color: 'white' } }, y: { title: { display: true, text: 'Amplitude', color: 'white' } } }, plugins: { legend: { labels: { color: 'white' } } } }
+            });
+        }
+    }
+
+let freqResponseChart;
+
+async function computeZ(seq, exprDivId, canvasId) {
+    try {
+        const res = await fetch('/api/ztransform', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sequence: seq })
+        });
+        const data = await res.json();
+        if (data.error) { setStatus(data.error, true); return; }
+        
+        // Update expression display with stability info
+        let stabilityColor = data.explanation && data.explanation.stability === 'Stable' ? '#4cff4c' : '#ff6b6b';
+        let stabilityInfo = '';
+        if (data.explanation) {
+            stabilityInfo = `<br><span style="color: ${stabilityColor}">System: ${data.explanation.stability}</span> | 
+                            <span style="color: #4c9aff">Zeros: ${data.explanation.num_zeros}</span> | 
+                            <span style="color: #ff6b6b">Poles: ${data.explanation.num_poles}</span>`;
+        }
+        
+        document.getElementById(exprDivId).innerHTML = `$${data.expression}$${stabilityInfo}`;
+        MathJax.typesetPromise();
+        
+        // Draw pole-zero plot
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        // Get the computed style to preserve size
+        const rect = canvas.getBoundingClientRect();
+        let w = rect.width;
+        let h = rect.height;
+        // Set minimum size if too small
+        if (w < 100) w = 300;
+        if (h < 100) h = 180;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#0a0f1e';
+        ctx.fillRect(0, 0, w, h);
+        
+        // Draw unit circle
+        ctx.strokeStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(w/2, h/2, Math.min(w,h)/2.5, 0, 2*Math.PI);
+        ctx.stroke();
+        
+        // Draw axes
+        ctx.moveTo(0, h/2);
+        ctx.lineTo(w, h/2);
+        ctx.stroke();
+        ctx.moveTo(w/2, 0);
+        ctx.lineTo(w/2, h);
+        ctx.stroke();
+        
+        const scale = Math.min(w,h)/2.5;
+        const mapX = x => w/2 + x * scale;
+        const mapY = y => h/2 - y * scale;
+        
+        // Draw zeros (blue circles)
+        data.zeros.forEach(z => {
+            ctx.fillStyle = '#4c9aff';
+            ctx.beginPath();
+            ctx.arc(mapX(z[0]), mapY(z[1]), 5, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.font = '10px monospace';
+            ctx.fillText('○', mapX(z[0])-3, mapY(z[1])-3);
+        });
+        
+        // Draw poles (red squares)
+        data.poles.forEach(p => {
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(mapX(p[0])-5, mapY(p[1])-5, 10, 10);
+            ctx.fillStyle = 'white';
+            ctx.font = '10px monospace';
+            ctx.fillText('×', mapX(p[0])-3, mapY(p[1])-3);
+        });
+        
+        // Add unit circle label
+        ctx.fillStyle = '#888';
+        ctx.font = '9px monospace';
+        ctx.fillText('|z|=1', w/2 + Math.min(w,h)/2.5 - 25, h/2 - 5);
+        
+        // Update Frequency Response chart - add min and max to x-axis
+        if (data.freq_response && data.freq_response.freqs) {
+            if (freqResponseChart) freqResponseChart.destroy();
+            const freqCtx = document.getElementById('freqResponseCanvas').getContext('2d');
+            freqResponseChart = new Chart(freqCtx, {
+                type: 'line',
+                data: {
+                    labels: data.freq_response.freqs,
+                    datasets: [
+                        {
+                            label: 'Magnitude Response',
+                            data: data.freq_response.magnitude,
+                            borderColor: 'cyan',
+                            borderWidth: 1.5,
+                            fill: false,
+                            pointRadius: 0,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: 'white', font: { size: 9 } } },
+                        tooltip: { callbacks: { label: function(context) {
+                            return `Freq: ${context.parsed.x.toFixed(1)} Hz, Mag: ${context.parsed.y.toFixed(2)}`;
+                        } } }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Frequency (Hz)', color: 'white', font: { size: 9 } },
+                            ticks: { color: 'white', font: { size: 8 }, maxTicksLimit: 8 },
+                            min: 0,
+                            max: 5000  // Match the backend limit
+                        },
+                        y: {
+                            title: { display: true, text: '|H(z)|', color: 'white', font: { size: 9 } },
+                            ticks: { color: 'white', font: { size: 8 } },
+                            min: 0
+                        }
+                    }
+                }
+            });
+        }
+        
+    } catch (err) {
+        console.error("Z-transform error:", err);
+        setStatus("Z-transform computation failed", true);
+    }
+}
+
+    function getCurrentParams() {
+        return {
+            fs: 44100, duration: parseFloat(document.getElementById('dur').value),
+            freq: parseFloat(document.getElementById('aliasSigFreq').value),
+            amp: 1.0, phase: 0, waveform: document.getElementById('waveform')?.value || 'sine',
+            filter_enable: filterEnabled,
+            filter_type: document.getElementById('filterType').value,
+            cutoff1: parseFloat(document.getElementById('cutoff1').value),
+            cutoff2: parseFloat(document.getElementById('cutoff2').value),
+            order: parseInt(document.getElementById('order').value),
+            window_enable: windowEnabled,
+            window: document.getElementById('windowType').value,
+            volume: parseFloat(document.getElementById('volume').value),
+            pan: parseFloat(document.getElementById('pan').value),
+            bass: parseFloat(document.getElementById('bassGain').value),
+            mid: parseFloat(document.getElementById('midGain').value),
+            treble: parseFloat(document.getElementById('trebleGain').value)
+        };
+    }
+
+    function setStatus(msg, isError = false) {
+        const s = document.getElementById('statusMsg');
+        s.innerText = msg;
+        if (isError) setTimeout(() => { if (s.innerText === msg) s.innerText = "Ready"; }, 3000);
+    }
+
+    document.querySelectorAll('.page-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const pageId = btn.getAttribute('data-page') + 'Page';
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.page-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (pageId === 'analysisPage' && hasSignal) {
+                updateAllPlots();
+                computeZ(document.getElementById('zSequenceAnalysis').value, 'zExprAnalysis', 'polezeroAnalysisCanvas');
+            }
+            if (pageId === 'renderPage' && hasSignal) updateAllPlots();
+        });
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', generateAndProcess);
+    document.getElementById('loadWavBtn').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/*,video/*';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            setStatus("Uploading and converting...");
+            try {
+                const res = await fetch('/api/upload_audio', { method: 'POST', body: formData });
+                if (!res.ok) throw new Error('Upload failed');
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                currentTime = data.t;
+                currentSignal = data.signal;
+                currentOriginal = currentSignal.slice();
+                hasSignal = true;
+                isLoadedAudio = true;
+                await applyDSPToCurrent();
+                
+                const audioPlayer = document.getElementById('audioPlayer');
+                audioPlayer.src = data.wav_url;
+                audioPlayer.load();
+                const playBtn = document.getElementById('playBtn');
+                playBtn.style.display = 'inline-flex';
+                
+                setDefaultZoom();
+                updateAllPlots();
+                setStatus(`Loaded: ${file.name}`);
+            } catch (err) {
+                setStatus("Error: " + err.message, true);
+            }
+        };
+        input.click();
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        if (hasSignal) {
+            if (isLoadedAudio) applyDSPToCurrent();
+            else generateAndProcess();
+        }
+    });
+    document.getElementById('saveProjectBtn').addEventListener('click', async () => {
+        const res = await fetch(`/api/save_project/${projectId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getCurrentParams())
+        });
+        setStatus(res.ok ? "Saved" : "Failed");
+    });
+    document.getElementById('backBtn').addEventListener('click', () => window.location.href = '/');
+    document.getElementById('updateAliasingBtn').addEventListener('click', updateAliasingPlot);
+    document.getElementById('computeZAnalysisBtn').addEventListener('click', () => computeZ(document.getElementById('zSequenceAnalysis').value, 'zExprAnalysis', 'polezeroAnalysisCanvas'));
+    document.getElementById('useSignalZBtn').addEventListener('click', () => {
+        if (!hasSignal) { alert("No signal loaded. Generate or load audio first."); return; }
+        const samples = currentSignal.slice(0, 10).map(s => s.toFixed(4)).join(', ');
+        document.getElementById('zSequenceAnalysis').value = samples;
+        computeZ(samples, 'zExprAnalysis', 'polezeroAnalysisCanvas');
+    });
+    document.getElementById('saveWavRenderBtn').addEventListener('click', () => alert("WAV export – implement /api/save_wav"));
+    document.getElementById('exportProjectRenderBtn').addEventListener('click', async () => {
+        const res = await fetch(`/api/export_project/${projectId}`);
+        if (res.ok) {
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `project_${projectId}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    });
+    document.getElementById('screenshotRenderBtn').addEventListener('click', () => alert("Screenshot – use browser's screenshot tool"));
+    
+    let isPlaying = false;
+    let animationId = null;
+    const playBtn = document.getElementById('playBtn');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    playBtn.addEventListener('click', () => {
+        if (audioPlayer.src) {
+            if (isPlaying) {
+                audioPlayer.pause();
+                playBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+                if (animationId) cancelAnimationFrame(animationId);
+            } else {
+                audioPlayer.play();
+                playBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                function updatePlayhead() {
+                    if (!audioPlayer.paused) {
+                        requestAnimationFrame(updatePlayhead);
+                    }
+                }
+                animationId = requestAnimationFrame(updatePlayhead);
+            }
+            isPlaying = !isPlaying;
+        }
+    });
+
+    audioPlayer.addEventListener('ended', () => {
+        isPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+        if (animationId) cancelAnimationFrame(animationId);
+    });
+
+    ['volume', 'pan', 'bassGain', 'midGain', 'trebleGain', 'cutoff1', 'cutoff2', 'order', 'filterType'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                if (el.disabled) return;
+                if (id === 'cutoff1') document.getElementById('c1Val').innerText = el.value;
+                if (id === 'cutoff2') document.getElementById('c2Val').innerText = el.value;
+                if (id === 'order') document.getElementById('orderVal').innerText = el.value;
+                if (id === 'volume') document.getElementById('volumeVal').innerText = parseFloat(el.value).toFixed(2);
+                if (id === 'pan') document.getElementById('panVal').innerText = parseFloat(el.value).toFixed(2);
+                if (hasSignal) {
+                    debounceProcess();
+                }
+            });
+        }
+    });
+
+    document.getElementById('aliasSigFreq').addEventListener('input', (e) => {
+        document.getElementById('aliasFreqVal').innerText = e.target.value;
+        updateAliasingPlot();
+    });
+    document.getElementById('aliasSampleFreq').addEventListener('input', (e) => {
+        document.getElementById('aliasSampleVal').innerText = e.target.value;
+        updateAliasingPlot();
+    });
+
+    document.getElementById('zoomInBtn').addEventListener('click', () => zoomWaveform(0.5));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => zoomWaveform(1.5));
+    document.getElementById('zoomResetBtn').addEventListener('click', resetZoom);
+
+    document.getElementById('dur').addEventListener('input', (e) => {
+        document.getElementById('durVal').innerText = e.target.value;
+        if (hasSignal) generateAndProcess();
+    });
+
+    const panSlider = document.getElementById('waveformPanSlider');
+
+    function updatePanSliderRange() {
+        if (!hasSignal) return;
+        const totalLen = currentTime.length;
+        const windowLen = zoomEndIdx - zoomStartIdx;
+        const maxStart = totalLen - windowLen;
+        panSlider.min = 0;
+        panSlider.max = maxStart > 0 ? maxStart : 0;
+        panSlider.value = zoomStartIdx;
+        panSlider.disabled = (maxStart <= 0);
+    }
+
+    panSlider.addEventListener('input', (e) => {
+        if (!hasSignal) return;
+        const newStart = parseInt(e.target.value);
+        const windowLen = zoomEndIdx - zoomStartIdx;
+        if (!isNaN(newStart) && newStart >= 0 && newStart + windowLen <= currentTime.length) {
+            zoomStartIdx = newStart;
+            zoomEndIdx = newStart + windowLen;
+            updateAllPlots();
+        }
+    });
+
+    async function loadParamsOnly() {
+        const res = await fetch(`/api/load_project/${projectId}`);
+        if (res.ok) {
+            const p = await res.json();
+            document.getElementById('cutoff1').value = p.cutoff1; document.getElementById('c1Val').innerText = p.cutoff1;
+            document.getElementById('cutoff2').value = p.cutoff2; document.getElementById('c2Val').innerText = p.cutoff2;
+            document.getElementById('order').value = p.order; document.getElementById('orderVal').innerText = p.order;
+            document.getElementById('filterType').value = p.filter_type;
+            document.getElementById('volume').value = p.volume; document.getElementById('volumeVal').innerText = p.volume;
+            document.getElementById('windowType').value = p.window;
+            document.getElementById('windowEnable').checked = false;
+            document.getElementById('windowType').disabled = true;
+            document.getElementById('aliasSigFreq').value = p.alias_freq || 440; document.getElementById('aliasFreqVal').innerText = p.alias_freq||440;
+            document.getElementById('aliasSampleFreq').value = p.sample_fs || 1000; document.getElementById('aliasSampleVal').innerText = p.sample_fs||1000;
+            document.getElementById('zSequenceAnalysis').value = p.z_sequence || '1, -0.5, 0.25';
+            if (p.duration) {
+                document.getElementById('dur').value = p.duration;
+                document.getElementById('durVal').innerText = p.duration;
+            }
+        }
+        setFilterEnabled(false);
+        setWindowEnabled(false);
+        await updateAliasingPlot();
+    }
+    loadParamsOnly();
+
+// REPLACE the entire playProcessedBtn event listener with this:
+document.getElementById('playProcessedBtn').addEventListener('click', async () => {
+    if (!hasSignal || !currentProcessed || currentProcessed.length === 0) {
+        setStatus("No processed signal available. Generate or load audio first.", true);
+        return;
+    }
+    
+    console.log("🎵 Playing processed signal DIRECTLY in browser");
+    console.log("Signal length:", currentProcessed.length);
+    
+    // Get the processed signal - this already has ALL effects applied
+    let audioData = currentProcessed;
+    const sampleRate = 44100;
+    
+    // Handle stereo vs mono
+    let numChannels = 1;
+    let channelData = [audioData];
+    
+    // Check if it's stereo (array of arrays)
+    if (audioData.length > 0 && Array.isArray(audioData[0])) {
+        numChannels = audioData[0].length;
+        channelData = [];
+        for (let ch = 0; ch < numChannels; ch++) {
+            channelData.push(audioData.map(sample => sample[ch]));
+        }
+        console.log(`Playing stereo audio with ${numChannels} channels`);
+    } else {
+        console.log("Playing mono audio");
+    }
+    
+    // Create WAV blob directly from the processed signal (NO backend call!)
+    const wavBlob = createWavBlob(channelData, sampleRate, numChannels);
+    const url = URL.createObjectURL(wavBlob);
+    
+    // Stop any current playback
+    const audioPlayer = document.getElementById('audioPlayer');
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0;
+    
+    // Load and play
+    audioPlayer.src = url;
+    audioPlayer.load();
+    
+    audioPlayer.oncanplay = () => {
+        audioPlayer.play().then(() => {
+            setStatus("Playing processed audio - what you see is what you hear!");
+        }).catch(e => {
+            console.error("Play error:", e);
+            setStatus("Playback failed: " + e.message, true);
+        });
+    };
+    
+    audioPlayer.onerror = (e) => {
+        console.error("Audio error:", e);
+        setStatus("Audio error", true);
+    };
+});
+
+// Add this DEBUG function to check what's in your processed signal
+function debugSignal(signal, name) {
+    console.log(`=== ${name} ===`);
+    console.log(`Length: ${signal.length}`);
+    
+    // Check first 20 samples
+    console.log(`First 20 samples:`, signal.slice(0, 20));
+    
+    // Calculate statistics
+    let sum = 0;
+    let sumSq = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    
+    for (let i = 0; i < Math.min(signal.length, 1000); i++) {
+        const val = Array.isArray(signal[i]) ? signal[i][0] : signal[i];
+        sum += val;
+        sumSq += val * val;
+        min = Math.min(min, val);
+        max = Math.max(max, val);
+    }
+    
+    const mean = sum / Math.min(signal.length, 1000);
+    const rms = Math.sqrt(sumSq / Math.min(signal.length, 1000));
+    
+    console.log(`Min: ${min}, Max: ${max}, Mean: ${mean}, RMS: ${rms}`);
+    
+    // Check if it's a pure sine wave (look for repeating pattern)
+    if (signal.length > 100) {
+        // Detect if signal is periodic (sine wave)
+        let zeroCrossings = 0;
+        let lastSign = Math.sign(signal[0]);
+        for (let i = 1; i < Math.min(signal.length, 500); i++) {
+            const val = Array.isArray(signal[i]) ? signal[i][0] : signal[i];
+            const sign = Math.sign(val);
+            if (sign !== 0 && sign !== lastSign) {
+                zeroCrossings++;
+                lastSign = sign;
+            }
+        }
+        console.log(`Zero crossings (first 500 samples): ${zeroCrossings}`);
+        if (zeroCrossings > 10) {
+            console.log("Signal appears to be oscillating (sine wave-like)! This explains the TOOOT sound.");
+        } else if (zeroCrossings === 0) {
+            console.log("Signal has no zero crossings - it might be DC offset or silent!");
+        }
+    }
+    
+    // Check if signal is all zeros or very small
+    if (max < 0.01 && min > -0.01) {
+        console.log("SIGNAL IS ALMOST SILENT! (values very close to zero)");
+    }
+}
+
+// Make sure these helper functions exist (add them if missing):
+function createWavBlob(channelData, sampleRate, numChannels) {
+    const samplesPerChannel = channelData[0].length;
+    const totalSamples = samplesPerChannel * numChannels;
+    
+    // Create WAV file header and data
+    const buffer = new ArrayBuffer(44 + totalSamples * 2);
+    const view = new DataView(buffer);
+    
+    // Write WAV header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + totalSamples * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, totalSamples * 2, true);
+    
+    // Write audio data (convert float to 16-bit PCM)
+    let offset = 44;
+    for (let i = 0; i < samplesPerChannel; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+            let sample = channelData[ch][i];
+            // Clamp to [-1, 1] and convert to 16-bit int
+            sample = Math.max(-1, Math.min(1, sample));
+            const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+            view.setInt16(offset, intSample, true);
+            offset += 2;
+        }
+    }
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+</script>
+</body>
+</html>

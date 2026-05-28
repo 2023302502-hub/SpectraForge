@@ -1,0 +1,26 @@
+{
+  "e9cca054": {
+    "id": "e9cca054",
+    "name": "test",
+    "status": "current",
+    "created_at": "2026-05-24T17:05:00.162308",
+    "location": "",
+    "params": {
+      "fs": 44100,
+      "duration": 2.0,
+      "freq": 440.0,
+      "amp": 1.0,
+      "phase": 0.0,
+      "waveform": "sine",
+      "filter_type": "lowpass",
+      "cutoff1": 1000.0,
+      "cutoff2": 4000.0,
+      "order": 4,
+      "window": "rectangular",
+      "volume": 1.0,
+      "sample_fs": 1000.0,
+      "alias_freq": 440.0,
+      "z_sequence": "1, -0.5, 0.25"
+    }
+  }
+}

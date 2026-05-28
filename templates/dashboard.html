@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectraForge – Project Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* (same styles as before – unchanged) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            font-family: 'Segoe UI', 'Poppins', 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .dashboard {
+            width: 90vw;
+            max-width: 1600px;
+            height: 85vh;
+            max-height: 1000px;
+            background: rgba(18, 25, 45, 0.65);
+            backdrop-filter: blur(14px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 120, 215, 0.4);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 120, 215, 0.15) inset;
+            padding: 1.8rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-header {
+            flex-shrink: 0;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fff, #4c9aff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            background: rgba(10, 18, 30, 0.8);
+            border: 1px solid #2c3f5f;
+            border-radius: 40px;
+            padding: 0.3rem 0.8rem;
+            backdrop-filter: blur(4px);
+        }
+        .search-container i {
+            color: #7c8fb0;
+            font-size: 0.9rem;
+        }
+        .search-container input {
+            background: transparent;
+            border: none;
+            padding: 0.4rem 0.6rem;
+            color: white;
+            font-size: 0.85rem;
+            width: 180px;
+            outline: none;
+        }
+        .search-container input::placeholder {
+            color: #5f6f8a;
+        }
+
+        .sub {
+            color: #8e9aaf;
+            margin-bottom: 1.2rem;
+            border-left: 3px solid #0078d7;
+            padding-left: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 0;
+        }
+
+        .projects-list-container {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .projects-grid {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .projects-grid.has-projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 1.2rem;
+            align-content: flex-start;
+        }
+
+        .projects-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .projects-list-container::-webkit-scrollbar-track {
+            background: #1a2740;
+            border-radius: 10px;
+        }
+        .projects-list-container::-webkit-scrollbar-thumb {
+            background: #3a5a7a;
+            border-radius: 10px;
+        }
+
+        .project-card {
+            background: rgba(25, 35, 55, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 1.2rem;
+            border: 1px solid rgba(0, 120, 215, 0.4);
+            padding: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            border-color: #0078d7;
+        }
+
+        .project-card.selected {
+            border: 2px solid #0078d7;
+            background: rgba(0, 120, 215, 0.2);
+            box-shadow: 0 0 12px rgba(0, 120, 215, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .project-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            word-break: break-word;
+        }
+
+        .delete-icon {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .delete-icon:hover {
+            background: rgba(255, 107, 107, 0.3);
+            transform: scale(1.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            background: #2a3a5a;
+            color: #bbd4ff;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-badge.finished {
+            background: #1e4620;
+            color: #8eff8e;
+        }
+
+        .project-meta {
+            font-size: 0.7rem;
+            color: #9aaec0;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.4rem;
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #7c8fb0;
+        }
+        .empty-state i {
+            font-size: 2.8rem;
+            margin-bottom: 0.8rem;
+            opacity: 0.5;
+        }
+        .empty-state p {
+            font-size: 1rem;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .new-project-modal {
+            background: rgba(10, 18, 30, 0.98);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid #0078d7;
+            width: 420px;
+            position: relative;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.6);
+        }
+        .delete-modal {
+            background: rgba(10, 18, 30, 0.98);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid #ff6b6b;
+            width: 380px;
+            text-align: center;
+            position: relative;
+        }
+        .delete-modal h3,
+        .delete-modal p {
+            color: white;
+        }
+        .delete-confirm-btn {
+            background: #ff6b6b;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            flex: 1;
+        }
+        .delete-confirm-btn:hover {
+            background: #ff4444;
+            transform: scale(1.02);
+        }
+        .delete-cancel-btn {
+            background: #3a3a5a;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            flex: 1;
+        }
+        .delete-cancel-btn:hover {
+            background: #4a4a6a;
+        }
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1.2rem;
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .close-modal:hover {
+            transform: scale(1.1);
+            color: #ff4444;
+        }
+        .new-project-modal h3 {
+            margin-bottom: 1.2rem;
+            color: white;
+            font-size: 1.4rem;
+        }
+        .modal-form-group {
+            margin-bottom: 1.2rem;
+        }
+        .modal-form-group label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7c8fb0;
+            margin-bottom: 5px;
+        }
+        .modal-form-group input {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #2c3f5f;
+            padding: 10px 12px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .modal-form-group input:focus {
+            border-color: #0078d7;
+            box-shadow: 0 0 6px rgba(0, 120, 215, 0.3);
+        }
+        .create-btn {
+            background: linear-gradient(90deg, #0078d7, #005a9e);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+        }
+        .create-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .action-bar {
+            flex-shrink: 0;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+
+        .action-btn {
+            background: rgba(20, 30, 50, 0.9);
+            border: 1px solid #3a4c6e;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #e0eaff;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .action-btn:hover {
+            background: #0078d7;
+            border-color: #0078d7;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <div class="dashboard-header">
+        <div class="header-row">
+            <h1><i class="fas fa-chart-line"></i> SpectraForge DSP</h1>
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search projects...">
+            </div>
+        </div>
+        <div class="sub">Project Dashboard – manage your DSP sessions</div>
+    </div>
+
+    <div class="main-content">
+        <div id="projectsArea" class="projects-list-container">
+            <div id="projectsGrid" class="projects-grid"></div>
+        </div>
+    </div>
+
+    <div id="actionBar" class="action-bar">
+        <button id="exportBtn" class="action-btn"><i class="fas fa-download"></i> Export</button>
+        <button id="newProjectBtn" class="action-btn"><i class="fas fa-plus"></i> New Project</button>
+        <button id="openBtn" class="action-btn"><i class="fas fa-folder-open"></i> Open</button>
+    </div>
+</div>
+
+<!-- New project modal -->
+<div id="newProjectModal" class="modal-overlay hidden">
+    <div class="new-project-modal">
+        <button id="closeModalBtn" class="close-modal"><i class="fas fa-times"></i></button>
+        <h3><i class="fas fa-plus-circle"></i> Create New Project</h3>
+        <div class="modal-form-group">
+            <label>Project Name</label>
+            <input type="text" id="modalProjectName" placeholder="Enter project name" autofocus>
+        </div>
+        <button id="modalCreateBtn" class="create-btn">Create Project</button>
+    </div>
+</div>
+
+<!-- Delete modal -->
+<div id="deleteModal" class="modal-overlay hidden">
+    <div class="delete-modal">
+        <button id="closeDeleteModalBtn" class="close-modal"><i class="fas fa-times"></i></button>
+        <i class="fas fa-trash-alt" style="font-size: 3rem; color: #ff6b6b; margin-bottom: 1rem;"></i>
+        <h3>Delete Project</h3>
+        <p id="deleteProjectName" style="margin: 0.5rem 0;"></p>
+        <p>This action cannot be undone.</p>
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button id="confirmDeleteBtn" class="delete-confirm-btn">Confirm</button>
+            <button id="cancelDeleteBtn" class="delete-cancel-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allProjects = [];
+    let filteredProjects = [];
+    let selectedProjectId = null;
+    let searchTerm = "";
+    let pendingDeleteId = null;
+    let pendingDeleteName = null;
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteProjectNameSpan = document.getElementById('deleteProjectName');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
+
+    // ---------- localStorage key for last opened timestamps ----------
+    const LAST_OPENED_KEY = 'spectraforge_last_opened';
+
+    function updateLastOpened(projectId) {
+        let lastOpened = JSON.parse(localStorage.getItem(LAST_OPENED_KEY) || '{}');
+        lastOpened[projectId] = Date.now();
+        localStorage.setItem(LAST_OPENED_KEY, JSON.stringify(lastOpened));
+    }
+
+    function getLastOpened(projectId) {
+        let lastOpened = JSON.parse(localStorage.getItem(LAST_OPENED_KEY) || '{}');
+        return lastOpened[projectId] || 0;
+    }
+
+    // Sort projects: by last opened descending (most recent first), then by creation date descending
+    function sortProjects(projects) {
+        return projects.sort((a, b) => {
+            const lastA = getLastOpened(a.id);
+            const lastB = getLastOpened(b.id);
+            if (lastA !== lastB) return lastB - lastA;
+            // if both never opened, fallback to creation date
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+    }
+
+    function showDeleteModal(projectId, projectName) {
+        pendingDeleteId = projectId;
+        pendingDeleteName = projectName;
+        deleteProjectNameSpan.innerText = `"${escapeHtml(projectName)}"`;
+        deleteModal.classList.remove('hidden');
+    }
+
+    function hideDeleteModal() {
+        deleteModal.classList.add('hidden');
+        pendingDeleteId = null;
+        pendingDeleteName = null;
+    }
+
+    async function performDelete() {
+        if (!pendingDeleteId) return;
+        const res = await fetch(`/delete_project/${pendingDeleteId}`, { method: 'DELETE' });
+        if (res.ok) {
+            if (selectedProjectId === pendingDeleteId) selectedProjectId = null;
+            // also remove from localStorage
+            let lastOpened = JSON.parse(localStorage.getItem(LAST_OPENED_KEY) || '{}');
+            delete lastOpened[pendingDeleteId];
+            localStorage.setItem(LAST_OPENED_KEY, JSON.stringify(lastOpened));
+            await loadProjects();
+        } else {
+            alert('Delete failed');
+        }
+        hideDeleteModal();
+    }
+
+    const projectsGrid = document.getElementById('projectsGrid');
+    const searchInput = document.getElementById('searchInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const newProjectBtn = document.getElementById('newProjectBtn');
+    const openBtn = document.getElementById('openBtn');
+    const modal = document.getElementById('newProjectModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalCreateBtn = document.getElementById('modalCreateBtn');
+    const modalProjectName = document.getElementById('modalProjectName');
+
+    async function loadProjects() {
+        const res = await fetch('/api/projects');
+        if (res.ok) {
+            allProjects = await res.json();
+            // apply sorting (by last opened + creation date)
+            allProjects = sortProjects(allProjects);
+            applySearchAndRender();
+        } else {
+            console.error('Failed to load projects');
+        }
+    }
+
+    function applySearchAndRender() {
+        if (searchTerm.trim() === "") {
+            filteredProjects = [...allProjects];
+        } else {
+            const term = searchTerm.toLowerCase();
+            filteredProjects = allProjects.filter(proj => 
+                proj.name.toLowerCase().includes(term)
+            );
+        }
+        renderProjects();
+    }
+
+    function renderProjects() {
+        const hasProjects = filteredProjects.length > 0;
+
+        if (!hasProjects) {
+            if (allProjects.length === 0) {
+                projectsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-microphone-alt"></i>
+                        <p>No projects yet.<br>Click "New Project" to start.</p>
+                    </div>
+                `;
+            } else {
+                projectsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <p>No matching projects.<br>Try a different search term.</p>
+                    </div>
+                `;
+            }
+            projectsGrid.classList.remove('has-projects');
+            return;
+        }
+
+        projectsGrid.classList.add('has-projects');
+        projectsGrid.innerHTML = filteredProjects.map(proj => `
+            <div class="project-card ${selectedProjectId === proj.id ? 'selected' : ''}" data-id="${proj.id}">
+                <div class="card-header">
+                    <span class="project-name">${escapeHtml(proj.name)}</span>
+                    <div class="delete-icon" data-id="${proj.id}" title="Delete"><i class="fas fa-trash-alt"></i></div>
+                </div>
+                <div class="status-badge ${proj.status === 'finished' ? 'finished' : ''}">
+                    <i class="fas ${proj.status === 'finished' ? 'fa-check-circle' : 'fa-spinner'}"></i> ${proj.status || 'current'}
+                </div>
+                <div class="project-meta">
+                    <span><i class="far fa-calendar-alt"></i> ${new Date(proj.created_at).toLocaleDateString()}</span>
+                    <span><i class="fas fa-code-branch"></i> ${proj.id.substring(0,6)}</span>
+                </div>
+            </div>
+        `).join('');
+
+        // Attach click handlers
+        document.querySelectorAll('.project-card').forEach(card => {
+            const id = card.getAttribute('data-id');
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-icon')) return;
+                selectedProjectId = id;
+                renderProjects();
+            });
+            card.addEventListener('dblclick', () => openProject(id));
+        });
+
+        document.querySelectorAll('.delete-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = icon.getAttribute('data-id');
+                const projName = filteredProjects.find(p => p.id === id)?.name;
+                if (projName) {
+                    showDeleteModal(id, projName);
+                }
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function showModal() {
+        modal.classList.remove('hidden');
+        modalProjectName.value = '';
+        modalProjectName.focus();
+    }
+
+    function hideModal() {
+        modal.classList.add('hidden');
+    }
+
+    async function createProject(name) {
+        const res = await fetch('/create_project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            // Mark new project as opened now (so it appears at top)
+            updateLastOpened(data.id);
+            await loadProjects();
+            hideModal();
+            searchInput.value = '';
+            searchTerm = '';
+            applySearchAndRender();
+        } else {
+            alert('Failed to create project');
+        }
+    }
+
+    function openProject(id) {
+        // Update last opened timestamp before navigating
+        updateLastOpened(id);
+        window.location.href = `/project/${id}`;
+    }
+
+    async function exportProject() {
+        if (!selectedProjectId) {
+            alert('Please select a project first (single click on a card).');
+            return;
+        }
+        const res = await fetch(`/api/export_project/${selectedProjectId}`);
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `project_${selectedProjectId}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else {
+            alert('Export failed');
+        }
+    }
+
+    // Event listeners
+    newProjectBtn.addEventListener('click', showModal);
+    closeModalBtn.addEventListener('click', hideModal);
+    modalCreateBtn.addEventListener('click', () => {
+        const name = modalProjectName.value.trim();
+        if (!name) {
+            alert('Please enter a project name');
+            return;
+        }
+        createProject(name);
+    });
+    exportBtn.addEventListener('click', exportProject);
+    openBtn.addEventListener('click', () => {
+        if (selectedProjectId) openProject(selectedProjectId);
+        else alert('Select a project first');
+    });
+    searchInput.addEventListener('input', (e) => {
+        searchTerm = e.target.value;
+        applySearchAndRender();
+    });
+
+    confirmDeleteBtn.addEventListener('click', performDelete);
+    cancelDeleteBtn.addEventListener('click', hideDeleteModal);
+    closeDeleteModalBtn.addEventListener('click', hideDeleteModal);
+    deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) hideDeleteModal();
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) hideModal();
+    });
+
+    loadProjects();
+</script>
+</body>
+</html>
