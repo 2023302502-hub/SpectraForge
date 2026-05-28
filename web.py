@@ -12,6 +12,8 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
+
 UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_EXTENSIONS = {'mp3', 'wav', 'mp4', 'm4a', 'ogg', 'flac', 'avi', 'mov', 'mkv'}
 
@@ -680,70 +682,58 @@ def upload_audio():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
-
-    # Look for ffmpeg.exe in the same folder as web.py first
-    ffmpeg_path = os.path.join(os.path.dirname(__file__), 'ffmpeg.exe')
-    if not os.path.exists(ffmpeg_path):
-        # Fallback to system PATH
-        try:
-            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
-            ffmpeg_path = 'ffmpeg'
-        except (subprocess.SubprocessError, FileNotFoundError):
-            return jsonify({'error': 'ffmpeg.exe not found in project folder nor in PATH. Please download ffmpeg.exe and place it in the project folder.'}), 500
-
-    unique_id = str(uuid.uuid4())[:8]
-    ext = file.filename.rsplit('.', 1)[1].lower()
-    temp_input = os.path.join(UPLOAD_FOLDER, f"{unique_id}_input.{ext}")
-    temp_wav = os.path.join(UPLOAD_FOLDER, f"{unique_id}_output.wav")
-    file.save(temp_input)
-
+    
+    if not file.filename.lower().endswith('.wav'):
+        return jsonify({'error': 'Only WAV files are supported'}), 400
+    
+    # Save to temp file
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
+        file.save(tmp.name)
+        tmp_path = tmp.name
+    
     try:
-        cmd = [
-            ffmpeg_path, '-y', '-i', temp_input,
-            '-ac', '1',           # mono
-            '-ar', '44100',       # 44.1 kHz
-            '-acodec', 'pcm_s16le',
-            temp_wav
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            raise Exception(f"ffmpeg error: {result.stderr}")
-
-        # Read the WAV file
-        fs, data = wavfile.read(temp_wav)
+        # Read using scipy
+        fs, data = wavfile.read(tmp_path)
+        
+        # Convert to float32 and normalize
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32767.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+        elif data.dtype == np.uint8:
+            data = (data.astype(np.float32) - 128) / 128.0
+        else:
+            # If float, assume already in [-1,1]
+            data = data.astype(np.float32)
+        
+        # Convert to mono if stereo
         if len(data.shape) > 1:
-            data = np.mean(data, axis=1)  # ensure mono
-        # Normalize to [-1, 1] (assumes int16 input)
-        data = data.astype(np.float32) / 32767.0
-
+            data = np.mean(data, axis=1)
+        
         t = np.linspace(0, len(data)/fs, len(data), endpoint=False).tolist()
-        wav_url = f'/api/audio/{unique_id}.wav'
-
-        if not hasattr(app, 'temp_files'):
-            app.temp_files = {}
-        app.temp_files[unique_id] = temp_wav
-
-        # Delete input file to save space
-        try:
-            os.remove(temp_input)
-        except:
-            pass
-
+        
+        # Clean up
+        os.unlink(tmp_path)
+        
         return jsonify({
             't': t,
             'signal': data.tolist(),
             'fs': fs,
-            'wav_url': wav_url,
+            'wav_url': '',
             'duration': len(data) / fs
         })
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Conversion timed out (file too large?)'}), 500
+        
     except Exception as e:
+        # Clean up
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+        # Return detailed error message to client
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        error_details = traceback.format_exc()
+        print(error_details)  # This will appear in Render logs if they ever show up
+        return jsonify({'error': f'Failed to read WAV: {str(e)}', 'traceback': error_details}), 500
 
 @app.route('/api/audio/<file_id>.wav')
 def serve_audio(file_id):
