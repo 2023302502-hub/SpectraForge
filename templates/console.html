@@ -244,6 +244,7 @@
         <button class="page-btn active" data-page="edit">Edit</button>
         <button class="page-btn" data-page="analysis">Analysis</button>
         <button class="page-btn" data-page="render">Render & Save</button>
+        <button class="page-btn" data-page="image">Image Effects</button>
     </div>
 
     <!-- PAGE 1: EDIT -->
@@ -396,11 +397,211 @@
             </div>
         </div>
     </div>
+
+    <!-- PAGE 4: IMAGE EFFECTS -->
+<div id="imagePage" class="page">
+    <div style="flex:1; display: flex; gap: 1rem; height: 100%;">
+        <!-- Left panel: Controls -->
+        <div class="left-panel" style="width: 280px;">
+            <div class="card">
+                <h3><i class="fas fa-upload"></i> Load Image</h3>
+                <div style="text-align: center; margin: 1rem 0;">
+                    <button id="uploadImageBtn" style="padding: 0.5rem 1rem;"><i class="fas fa-image"></i> Choose Image</button>
+                    <div id="imageInfo" style="font-size:0.7rem; margin-top:0.5rem; color:#aaa;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-filter"></i> Image Filters</h3>
+                <div class="control-row">
+                    <label>Filter Type</label>
+                    <select id="imgFilterType">
+                        <option value="gaussian_blur">Gaussian Blur</option>
+                        <option value="median_blur">Median Blur</option>
+                        <option value="sharpen">Sharpen</option>
+                        <option value="edge_detect">Edge Detect</option>
+                        <option value="sobel">Sobel Edge</option>
+                        <option value="emboss">Emboss</option>
+                        <option value="contour">Contour</option>
+                        <option value="smooth">Smooth</option>
+                    </select>
+                </div>
+                <div class="control-row" id="intensityControl">
+                    <label>Intensity / Radius</label>
+                    <input type="range" id="imgIntensity" min="0.5" max="10" step="0.5" value="2.0">
+                    <span id="intensityVal">2.0</span>
+                </div>
+                <div class="control-row" id="thresholdControl" style="display:none;">
+                    <label>Threshold</label>
+                    <input type="range" id="imgThreshold" min="0" max="255" step="5" value="50">
+                    <span id="thresholdVal">50</span>
+                </div>
+                <button id="applyImageFilterBtn" style="width:100%; margin-top:1rem;"><i class="fas fa-magic"></i> Apply Filter</button>
+                <button id="resetImageBtn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+        </div>
+        
+        <!-- Right panel: Image previews -->
+        <div style="flex:2; display: flex; gap: 1rem;">
+            <div class="monitor">
+                <div class="monitor-title">Original Image</div>
+                <canvas id="originalImageCanvas" style="width:100%; height:auto; background:#0a0f1e;"></canvas>
+            </div>
+            <div class="monitor">
+                <div class="monitor-title">Processed Image</div>
+                <canvas id="processedImageCanvas" style="width:100%; height:auto; background:#0a0f1e;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
     <audio id="audioPlayer" style="display: none;"></audio>
     <div class="status-bar" id="statusMsg">Ready – generate or load audio</div>
 </div>
 
 <script>
+
+// Image processing variables
+let currentImageId = null;
+let originalImageData = null;
+let imgWidth = 0, imgHeight = 0;
+
+// DOM elements
+const uploadImageBtn = document.getElementById('uploadImageBtn');
+const imgFilterType = document.getElementById('imgFilterType');
+const imgIntensity = document.getElementById('imgIntensity');
+const imgThreshold = document.getElementById('imgThreshold');
+const applyImageFilterBtn = document.getElementById('applyImageFilterBtn');
+const resetImageBtn = document.getElementById('resetImageBtn');
+const intensityVal = document.getElementById('intensityVal');
+const thresholdVal = document.getElementById('thresholdVal');
+const intensityControl = document.getElementById('intensityControl');
+const thresholdControl = document.getElementById('thresholdControl');
+const originalCanvas = document.getElementById('originalImageCanvas');
+const processedCanvas = document.getElementById('processedImageCanvas');
+
+// Show/hide controls based on filter type
+imgFilterType.addEventListener('change', () => {
+    const filter = imgFilterType.value;
+    if (filter === 'gaussian_blur' || filter === 'median_blur') {
+        intensityControl.style.display = 'flex';
+        thresholdControl.style.display = 'none';
+    } else if (filter === 'edge_detect' || filter === 'sobel') {
+        intensityControl.style.display = 'none';
+        thresholdControl.style.display = 'flex';
+    } else {
+        intensityControl.style.display = 'flex';
+        thresholdControl.style.display = 'none';
+    }
+});
+
+// Update displayed values
+imgIntensity.addEventListener('input', () => {
+    intensityVal.innerText = imgIntensity.value;
+    if (currentImageId) debounceImageFilter();
+});
+imgThreshold.addEventListener('input', () => {
+    thresholdVal.innerText = imgThreshold.value;
+    if (currentImageId) debounceImageFilter();
+});
+
+// Debounce for real-time preview
+let imageDebounceTimer;
+function debounceImageFilter() {
+    clearTimeout(imageDebounceTimer);
+    imageDebounceTimer = setTimeout(() => {
+        if (currentImageId) applyImageFilter();
+    }, 100);
+}
+
+// Upload image
+uploadImageBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        setStatus("Uploading image...");
+        
+        try {
+            const res = await fetch('/api/upload_image', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            
+            currentImageId = data.image_id;
+            imgWidth = data.width;
+            imgHeight = data.height;
+            
+            // Draw original image on canvas
+            const originalImg = new Image();
+            originalImg.onload = () => {
+                originalCanvas.width = imgWidth;
+                originalCanvas.height = imgHeight;
+                const ctx = originalCanvas.getContext('2d');
+                ctx.drawImage(originalImg, 0, 0, imgWidth, imgHeight);
+                originalImageData = ctx.getImageData(0, 0, imgWidth, imgHeight);
+            };
+            originalImg.src = data.original;
+            
+            document.getElementById('imageInfo').innerHTML = `${file.name}<br>${imgWidth}×${imgHeight}`;
+            setStatus("Image loaded. Apply filters.");
+            
+            // Apply default filter
+            applyImageFilter();
+        } catch (err) {
+            setStatus("Error: " + err.message, true);
+        }
+    };
+    input.click();
+});
+
+// Apply filter
+async function applyImageFilter() {
+    if (!currentImageId) return;
+    
+    const params = {
+        image_id: currentImageId,
+        filter_type: imgFilterType.value,
+        intensity: parseFloat(imgIntensity.value),
+        threshold: parseInt(imgThreshold.value)
+    };
+    
+    setStatus("Applying filter...");
+    try {
+        const res = await fetch('/api/process_image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        const processedImg = new Image();
+        processedImg.onload = () => {
+            processedCanvas.width = imgWidth;
+            processedCanvas.height = imgHeight;
+            const ctx = processedCanvas.getContext('2d');
+            ctx.drawImage(processedImg, 0, 0, imgWidth, imgHeight);
+        };
+        processedImg.src = data.processed;
+        setStatus("Filter applied.");
+    } catch (err) {
+        setStatus("Error: " + err.message, true);
+    }
+}
+
+applyImageFilterBtn.addEventListener('click', applyImageFilter);
+resetImageBtn.addEventListener('click', () => {
+    if (originalImageData && originalCanvas) {
+        const ctx = processedCanvas.getContext('2d');
+        processedCanvas.width = imgWidth;
+        processedCanvas.height = imgHeight;
+        ctx.putImageData(originalImageData, 0, 0);
+        setStatus("Reset to original.");
+    }
+});
     let isLoadedAudio = false;
     const projectId = "{{ project.id }}";
     let currentSignal = [], currentTime = [], currentProcessed = [], currentFreqs = [], currentMag = [];
@@ -1061,20 +1262,33 @@ async function computeZ(seq, exprDivId, canvasId) {
         if (isError) setTimeout(() => { if (s.innerText === msg) s.innerText = "Ready"; }, 3000);
     }
 
-    document.querySelectorAll('.page-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const pageId = btn.getAttribute('data-page') + 'Page';
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-            document.querySelectorAll('.page-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (pageId === 'analysisPage' && hasSignal) {
-                updateAllPlots();
-                computeZ(document.getElementById('zSequenceAnalysis').value, 'zExprAnalysis', 'polezeroAnalysisCanvas');
+document.querySelectorAll('.page-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const pageId = btn.getAttribute('data-page') + 'Page';
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        document.querySelectorAll('.page-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Existing analysis/render logic...
+        if (pageId === 'analysisPage' && hasSignal) {
+            updateAllPlots();
+            computeZ(document.getElementById('zSequenceAnalysis').value, 'zExprAnalysis', 'polezeroAnalysisCanvas');
+        }
+        if (pageId === 'renderPage' && hasSignal) updateAllPlots();
+        
+        // NEW: If switching to image page, refresh canvas sizes
+        if (pageId === 'imagePage' && currentImageId) {
+            // Redraw canvases (preserve images)
+            if (originalImageData && originalCanvas) {
+                originalCanvas.width = imgWidth;
+                originalCanvas.height = imgHeight;
+                const ctx = originalCanvas.getContext('2d');
+                ctx.putImageData(originalImageData, 0, 0);
             }
-            if (pageId === 'renderPage' && hasSignal) updateAllPlots();
-        });
+        }
     });
+});
 
     document.getElementById('generateBtn').addEventListener('click', generateAndProcess);
     document.getElementById('loadWavBtn').addEventListener('click', () => {

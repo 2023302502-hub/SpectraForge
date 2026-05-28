@@ -9,6 +9,15 @@ import json
 import os
 import uuid
 from datetime import datetime
+from PIL import Image, ImageFilter, ImageOps
+import io
+import base64
+import cv2
+import numpy as np
+from PIL import Image
+import io
+import base64
+import uuid
 
 app = Flask(__name__)
 
@@ -31,6 +40,78 @@ def load_projects():
 def save_projects(projects):
     with open(PROJECTS_FILE, 'w') as f:
         json.dump(projects, f, indent=2)
+
+@app.route('/api/upload_image', methods=['POST'])
+def upload_image():
+    """Upload an image file and return base64 preview"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    try:
+        # Open image and convert to RGB
+        img = Image.open(file.stream).convert('RGB')
+        
+        # Resize if too large (max 800px width/height)
+        max_size = 800
+        if max(img.size) > max_size:
+            ratio = max_size / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Save to bytes and encode as base64
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        
+        # Store original image in session or temp file
+        if not hasattr(app, 'temp_images'):
+            app.temp_images = {}
+        import uuid
+        img_id = str(uuid.uuid4())[:8]
+        app.temp_images[img_id] = img
+        
+        return jsonify({
+            'image_id': img_id,
+            'original': f'data:image/png;base64,{img_base64}',
+            'width': img.size[0],
+            'height': img.size[1]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/process_image', methods=['POST'])
+def process_image():
+    """Apply selected filter to the image"""
+    data = request.get_json()
+    img_id = data.get('image_id')
+    filter_type = data.get('filter_type', 'gaussian')
+    intensity = data.get('intensity', 2.0)
+    threshold = data.get('threshold', 50)  # Not used by new filters, but kept for compatibility
+
+    if not hasattr(app, 'temp_images') or img_id not in app.temp_images:
+        return jsonify({'error': 'Image not found'}), 404
+
+    # Get the PIL Image object from our temporary storage
+    img = app.temp_images[img_id]
+    
+    # Apply the filter
+    processed_img = apply_image_filter(img, filter_type, intensity)
+
+    # Convert the processed OpenCV image back to a PIL Image
+    processed_img_rgb = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
+    processed_pil_img = Image.fromarray(processed_img_rgb)
+
+    # Save to bytes and encode as base64
+    buffered = io.BytesIO()
+    processed_pil_img.save(buffered, format="PNG")
+    img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    return jsonify({
+        'processed': f'data:image/png;base64,{img_base64}'
+    })
 
 # ---------- Simple EQ filters (biquad) ----------
 # Replace your EQ functions with these more stable versions:
@@ -888,6 +969,57 @@ def apply_pan(sig, pan_value):
     print(f"Pan gains - Left: {left_gain:.3f}, Right: {right_gain:.3f}")
     
     return np.column_stack((left, right))
+
+def apply_image_filter(image, filter_type, intensity=2.0):
+    """
+    Applies a specified filter to an image.
+    """
+    # Convert PIL Image to OpenCV format (BGR)
+    img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    
+    if filter_type == 'gaussian':
+        # Gaussian Blur: smooths image using a Gaussian kernel[reference:4]
+        ksize = max(1, int(intensity) if intensity % 2 == 1 else int(intensity) + 1)
+        img = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    elif filter_type == 'average':
+        # Average Blur: replaces pixel with average of its neighbors[reference:5]
+        ksize = max(1, int(intensity) if intensity % 2 == 1 else int(intensity) + 1)
+        img = cv2.blur(img, (ksize, ksize))
+    elif filter_type == 'median':
+        # Median Blur: replaces pixel with median of its neighbors, good for noise[reference:6]
+        ksize = max(1, int(intensity) if intensity % 2 == 1 else int(intensity) + 1)
+        img = cv2.medianBlur(img, ksize)
+    elif filter_type == 'sobel':
+        # Sobel Edge Detection: detects edges using gradient approximation[reference:7]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        sobel = np.hypot(sobelx, sobely)
+        sobel = np.uint8(np.clip(sobel, 0, 255))
+        img = cv2.cvtColor(sobel, cv2.COLOR_GRAY2BGR)
+    elif filter_type == 'prewitt':
+        # Prewitt Edge Detection: similar to Sobel with a different kernel[reference:8]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        kernelx = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
+        kernely = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]])
+        prewittx = cv2.filter2D(gray, -1, kernelx)
+        prewitty = cv2.filter2D(gray, -1, kernely)
+        prewitt = np.hypot(prewittx, prewitty)
+        prewitt = np.uint8(np.clip(prewitt, 0, 255))
+        img = cv2.cvtColor(prewitt, cv2.COLOR_GRAY2BGR)
+    elif filter_type == 'laplacian':
+        # Laplacian Edge Detection: finds edges by looking for zero crossings[reference:9][reference:10]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+        laplacian = np.uint8(np.clip(np.absolute(laplacian), 0, 255))
+        img = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2BGR)
+    elif filter_type == 'sharpen':
+        # Image Sharpening: enhances edges using a sharpening kernel[reference:11][reference:12]
+        kernel = np.array([[-1, -1, -1],
+                           [-1,  9, -1],
+                           [-1, -1, -1]])
+        img = cv2.filter2D(img, -1, kernel)
+    return img
 
 if __name__ == '__main__':
     app.run(debug=True)
