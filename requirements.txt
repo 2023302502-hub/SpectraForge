@@ -1,6 +1,6 @@
 Flask>=3.1.0
-numpy==2.3.5
+numpy>=2.3.5
 scipy>=1.16.1
-sympy==1.12
+sympy>=1.13.0
 gunicorn
 setuptools
